@@ -30,10 +30,10 @@ import java.util.concurrent.ForkJoinPool;
 public class CholeskyBloques {
     private static int BLOCK = 3; //tamaño de datos BLOCK -1=3, el ultimo 'digito' es " ",al generar la simetrica el tamaño se duplica
     private static String FILENAMEMATRIZ = "DATACholeskyBloques.TXT"; 
-    private static int N_global = 640; // no necesariamente multiplo de NB , PAR o IMPAR , se crean k bloques si es impar con un bloque mayor 
+    private static int N_global = 64; // no necesariamente multiplo de NB , PAR o IMPAR , se crean k bloques si es impar con un bloque mayor 
     private static double [][] A_Global =new double[N_global][N_global];
     private static double [][]LGlobal = new double[N_global][N_global]; 
-    private static int NB = 64;//necesariamente de gran tamaño para evitar granularidad
+    private static int NB = 8;//necesariamente de gran tamaño para evitar granularidad
     private static int k_global=N_global/NB;
     private static double[][][][] ABloques = new double[k_global][k_global][NB][NB];
     private static double[][][][] LBloques = new double[k_global][k_global][NB][NB];
@@ -425,7 +425,7 @@ public static void ObtenerABloquesHilosPool(){
     }    
 }
 
-//-----------------OBTENER L (ensamblar los Lij) L final--------------------------------------------------------------
+//-----------------OBTENER L(LGlobal) (ensamblar los Lij) L final--------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------
 public static void ObtenerLGlobalSerial(){
     for(int k=0;k<k_global;k++){        //modo serial para la obtencion de los bloques
@@ -490,7 +490,19 @@ public static void ObtenerLGlobalHilosPool(){
         poolLGlobal.awaitTermination(Long.MAX_VALUE,TimeUnit.NANOSECONDS);
     }catch(InterruptedException e){
         Thread.currentThread().interrupt();
-    }  
+    }
+    try{
+        FileWriter fw = new FileWriter("DATALGlobal.TXT");
+        for(int i=0;i<N_global;i++){
+            for(int j=0;j<N_global;j++){
+                fw.write(LGlobal[i][j]+" ");
+            }
+            fw.write("\n");
+        }
+        fw.close();
+    }catch(IOException e){
+        e.printStackTrace();
+    }
 } 
 //----------------------------------------------------------------------------- ---------------------------------------------------------------
 //-------------------este metodo solo se hizo para el testeo manual , no es usado por los metodos de cholesky por bloques-----------------------------------------------------------
@@ -922,8 +934,7 @@ class DataSetCholesky{
         try{
             RAF = new RandomAccessFile(name,"r");
             fw = new FileWriter(FILE);
-            int W = (int)RAF.length()/(filas*columnas);
-           // System.out.println("dentro de readRAF"+W);
+            int W = (int)RAF.length()/(filas*columnas);//tamaño del bloque
             byte []BUFFER = new byte[W];
             for(int i =0;i<filas;i++){
                 for(int j=0;j<columnas;j++){
