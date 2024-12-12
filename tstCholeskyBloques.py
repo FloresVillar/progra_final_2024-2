@@ -1,7 +1,13 @@
 import numpy as np
 
 if __name__ == "__main__":
-    L11 =np.array([[22802.67337, 0.00000, 0.00000 ,0.00000],
+    A = np.array([[503.0, 1.0, 93.0 ,2092.0, 691.0],[ 
+610.0, 5.0, 42.0, 2332.0 ,893.0],[ 
+468.0, 1.0, 85.0, 8137.0, 659.0],[ 
+725.0, 4.0, 52.0, 2587.0, 284.0],[ 
+245.0 ,6.0 ,43.0, 4614.0, 207.0 ]])
+    print(A@np.transpose(A))    
+"""L11 =np.array([[22802.67337, 0.00000, 0.00000 ,0.00000],
 [17871.10999, 10086.02968, 0.00000 ,0.00000],
 [13851.43965 ,8399.94470, 6795.69980 ,0.00000],
 [16205.15437, 2135.01879, 6051.63983, 13238.08015]])
@@ -29,6 +35,7 @@ if __name__ == "__main__":
     l,v =np.linalg.eig(M)
     print(l)
     print(v)
+"""
 """//Imprimir("ABloques[1][0]",ABloques[1][0]);
         //Imprimir("ABloques[2][0]",ABloques[2][0]);
         //Imprimir("Transpuesta de L11",Transponer(L11));
@@ -135,7 +142,7 @@ LGlobal iteracion
 
         
         """
-        """//-------METODOS PARA DETERMINAR SI UNA MATRIZ SIMETRICA ES DEFINIDA POSITIVA; no se llega a un buen resultado----------------------------------------------------------------
+"""//-------METODOS PARA DETERMINAR SI UNA MATRIZ SIMETRICA ES DEFINIDA POSITIVA; no se llega a un buen resultado----------------------------------------------------------------
     public static ClassPositiva BuscarPositiva(double[][]M){
         ClassQR qr;
         double[][] M1 = new double[M.length][M[0].length];

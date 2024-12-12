@@ -20,6 +20,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+
+import javax.swing.plaf.basic.BasicBorders.RadioButtonBorder;
+
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.ForkJoinPool;
 //====================================================================================================================================
@@ -1047,4 +1050,150 @@ class DataSetCholesky{
     }
     //------------------------------------------------------------------------------------------------------------------------------
     //----------------------------------------------------------------------------------------------------------------------------
+}
+
+//==============================================================================================================
+//---crea columnas de datos de diferentes tamaños segun la columna, se calcula el producto interno fila  * columna de una matriz directamente desde disco
+//---dedido a que se genera una matriz y se multiplica por su transpuesta para obtener una simetrica definida positiva, esta clase no tiene mayor uso en cholesky por bloques
+class AccesoDisco {
+    private static String FILENAME="DATADISCO.TXT";
+    private static int filas= 10;
+    private static int columnas = 10;
+    private static int  []anchos; 
+    AccesoDisco(){
+    }
+    //-------------------------------------------------------
+    /*--ejemplo de uso--------
+    public static void main(String[]args){
+        CrearData();
+        double[][]A=ReadData();
+        WriteInFile("DATADISCOINFILE.TXT", A);
+        ProductoInterno(1, 2);
+    }
+    */
+    //---------------------------------------------------------------
+    public static void CrearData(){
+        anchos =new int[columnas];
+        Random ran  =new Random();
+        for(int i=0;i<anchos.length;i++){
+            anchos[i] = ran.nextInt(4)+1;
+            //System.out.println(anchos[i]+"\t");
+        }
+        System.out.println();
+        FileWriter fw;
+        try{
+            fw = new FileWriter(FILENAME);
+            double max;
+            double min;
+            for(int i= 0;i<filas;i++){
+                for(int j=0;j<columnas;j++){
+                    max = Math.pow(10,anchos[j]);
+                    min = Math.pow(10,anchos[j]-1);
+                    double num = ran.nextDouble()*(max-min)+min;
+                    fw.write((long)num +"");
+                }
+            }
+            fw.close();
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+    }
+    //---------------------------------------------------------------    
+    public static double[][] ReadData(){
+        RandomAccessFile RAF ;
+        double[][] M = new double[filas][columnas];
+        try{ 
+            RAF = new RandomAccessFile(FILENAME,"rw");
+            int anchoColumnas = PosicionarSeekColumna(columnas);
+            for(int i= 0;i<filas;i++){
+                for(int j=0;j<columnas;j++){
+                    byte[]record = new byte[anchos[j]];
+                    RAF.seek(i*anchoColumnas+PosicionarSeekColumna(j));
+                    RAF.read(record);
+                    String cad = ConvertirRecord(record);
+                    M[i][j] =Double.parseDouble(cad); 
+                } 
+            }
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+        return M;
+    }
+    //---------------------------------------------
+    //---------------------------------------------
+    public static void WriteInFile(String FILE,double[][]M){
+        FileWriter fw;
+        try{    
+            fw = new FileWriter(FILE);
+            for(int i=0;i<M.length;i++){
+                for(int j=0;j<M[0].length;j++){
+                    fw.write(M[i][j]+" ");
+                }
+                fw.write("\n");
+            }
+            fw.close();
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+    }
+    //-------------------------------------------------
+    public static String ConvertirRecord(byte[]record){
+        String cadena = " ";
+        for(int i=0;i<record.length;i++){
+            cadena =cadena + (char)record[i];
+        }
+        return cadena.trim();
+    }
+    //--------------------------------------------------
+    private static int PosicionarSeekColumna(int j){
+        int p=0;
+        for(int i=0;i<j;i++){
+            p+=anchos[i];
+        }
+        return  p;
+    }
+    //-------------------------------------------------------------------
+    public static double ProductoInterno(int fil, int colum,String FILE1,String FILE2){
+        double suma;
+        int fila = fil-1;
+        int columna = colum -1;
+        RandomAccessFile Rfila ;
+        RandomAccessFile Rcolumna;
+        int anchoColumnas =PosicionarSeekColumna(columnas);
+        try{
+            Rfila = new RandomAccessFile(FILE1, "r");
+            Rcolumna = new RandomAccessFile(FILE2, "r");
+            //celdaFila * celdaColumna
+            suma =0.0;
+            for(int k=0;k<columnas;k++){
+                double eFila =ObtenerCelda(Rfila,fila*anchoColumnas+PosicionarSeekColumna(k),anchos[k]);
+                double eColumna=ObtenerCelda(Rcolumna,k*anchoColumnas+PosicionarSeekColumna(columna),anchos[columna]);
+                suma+=(eFila+eColumna);
+                /*Rfila.seek(fila*anchoColumnas+PosicionarSeekColumna(k));
+                byte [] recordF  = new byte[anchos[k]];
+                Rfila.read(recordF);
+                Double eFila = Double.parseDouble(ConvertirRecord(recordF));
+                Rcolumna.seek(k*anchoColumnas+PosicionarSeekColumna(columna));
+                byte [] recordC = new byte[anchos[columna]];
+                Rcolumna.read(recordC);
+                Double eColumna = Double.parseDouble(ConvertirRecord(recordC));
+                suma+=(eFila*eColumna);*/
+            }
+            System.out.println(suma);
+        }catch(IOException e){
+            e.printStackTrace();
+        }
+        return 1.0;
+    } 
+    //------------------------------------------------------------------------------------------------
+    public static double ObtenerCelda(RandomAccessFile RAF,int P,int W) throws IOException {
+        RAF.seek(P);
+        byte [] recordF  = new byte[W];
+        RAF.read(recordF);
+        Double e = Double.parseDouble(ConvertirRecord(recordF));
+        return e;
+    }
+    //-----------------------------------------------------------------------------------------------------
+    
+    //------------------------------------------------------------------------------------------------------
 }
