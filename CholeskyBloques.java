@@ -1054,7 +1054,9 @@ class DataSetCholesky{
 
 //==============================================================================================================
 //---crea columnas de datos de diferentes tamaños segun la columna, se calcula el producto interno fila  * columna de una matriz directamente desde disco
-//---dedido a que se genera una matriz y se multiplica por su transpuesta para obtener una simetrica definida positiva, esta clase no tiene mayor uso en cholesky por bloques
+//--Se calcula el producto de dos matrices (en este caso el mismo) leyendo directamente desde disco mediante RAF
+//--Se paraleliza el producto interno vector-fila * vector-columna(pool de 4 hilos) mas que los bloques del producto
+//---dedido a que se genera una matriz y se multiplica por su transpuesta para obtener una simetrica definida positiva.
 class AccesoDisco {
     private static String FILENAME="DATADISCO.TXT";
     private static int filas= 10;
@@ -1068,7 +1070,15 @@ class AccesoDisco {
         CrearData();
         double[][]A=ReadData();
         WriteInFile("DATADISCOINFILE.TXT", A);
-        ProductoInterno(1, 2);
+        long inicio = System.nanoTime();
+        double productoSerial = ProductoInterno(1,4,FILENAME,FILENAME);
+        long tiempoSerial = System.nanoTime()-inicio;
+        inicio = System.nanoTime();
+        double productoParalelo = ProductoInternoPool(1, 4, FILENAME, FILENAME);
+        long tiempoParalela = System.nanoTime() - inicio;
+        System.out.println("serial: "+productoSerial+" tiempo="+tiempoSerial/1000000+" prodParalela: "+productoParalelo+"tiempo="+tiempoParalela/1000000);
+        double[][]prod= ProductoSerial(FILENAME, FILENAME);
+    
     }
     */
     //---------------------------------------------------------------
@@ -1154,7 +1164,7 @@ class AccesoDisco {
     }
     //-------------------------------------------------------------------
     public static double ProductoInterno(int fil, int colum,String FILE1,String FILE2){
-        double suma;
+        double suma=0.0;
         int fila = fil-1;
         int columna = colum -1;
         RandomAccessFile Rfila ;
@@ -1164,7 +1174,6 @@ class AccesoDisco {
             Rfila = new RandomAccessFile(FILE1, "r");
             Rcolumna = new RandomAccessFile(FILE2, "r");
             //celdaFila * celdaColumna
-            suma =0.0;
             for(int k=0;k<columnas;k++){
                 double eFila =ObtenerCelda(Rfila,fila*anchoColumnas+PosicionarSeekColumna(k),anchos[k]);
                 double eColumna=ObtenerCelda(Rcolumna,k*anchoColumnas+PosicionarSeekColumna(columna),anchos[columna]);
@@ -1179,11 +1188,107 @@ class AccesoDisco {
                 Double eColumna = Double.parseDouble(ConvertirRecord(recordC));
                 suma+=(eFila*eColumna);*/
             }
-            System.out.println(suma);
         }catch(IOException e){
             e.printStackTrace();
         }
-        return 1.0;
+        return suma;
+    } 
+    //--------------------------------------------------------------------------------------------
+    public static double ProductoInternoPool(int fil, int colum,String FILE1,String FILE2){
+        int fila = fil;
+        int columna = colum;
+        double []suma=new double[]{0,0,0,0};
+        int anchoColumnas =PosicionarSeekColumna(columnas);
+        ExecutorService poolProductoInterno = Executors.newFixedThreadPool(4);
+        poolProductoInterno.submit(()->{
+            try{
+                RandomAccessFile Rfila = new RandomAccessFile(FILE1, "r");
+                RandomAccessFile Rcolumna = new RandomAccessFile(FILE2, "r");
+                //celdaFila * celdaColumna
+                for(int k=0;k<(int)(1*columnas/4);k++){
+                    double eFila =ObtenerCelda(Rfila,fila*anchoColumnas+PosicionarSeekColumna(k),anchos[k]);
+                    double eColumna=ObtenerCelda(Rcolumna,k*anchoColumnas+PosicionarSeekColumna(columna),anchos[columna]);
+                    suma[0]+=(eFila+eColumna);
+                }
+                Rfila.close();
+                Rcolumna.close();
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        });
+        poolProductoInterno.submit(()->{
+            try{
+            RandomAccessFile Rfila = new RandomAccessFile(FILE1, "r");
+            RandomAccessFile Rcolumna = new RandomAccessFile(FILE2, "r");
+            //celdaFila * celdaColumna
+            for(int k=(int)(columnas/4);k<(int)(2*columnas/4);k++){
+                double eFila =ObtenerCelda(Rfila,fila*anchoColumnas+PosicionarSeekColumna(k),anchos[k]);
+                double eColumna=ObtenerCelda(Rcolumna,k*anchoColumnas+PosicionarSeekColumna(columna),anchos[columna]);
+                suma[1]+=(eFila+eColumna);
+            }
+            Rfila.close();
+            Rcolumna.close();
+        }catch(IOException e){
+            e.printStackTrace();
+        }});
+        poolProductoInterno.submit(()->{
+            try{
+                RandomAccessFile Rfila = new RandomAccessFile(FILE1, "r");
+                RandomAccessFile Rcolumna = new RandomAccessFile(FILE2, "r");
+                //celdaFila * celdaColumna
+                for(int k=(int)(2*columnas/4);k<(int)(3*columnas/4);k++){
+                    double eFila =ObtenerCelda(Rfila,fila*anchoColumnas+PosicionarSeekColumna(k),anchos[k]);
+                    double eColumna=ObtenerCelda(Rcolumna,k*anchoColumnas+PosicionarSeekColumna(columna),anchos[columna]);
+                    suma[2]+=(eFila+eColumna);
+                }
+                Rfila.close();
+                Rcolumna.close();
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        });
+        poolProductoInterno.submit( ()->{
+            try{
+                RandomAccessFile Rfila = new RandomAccessFile(FILE1, "r");
+                RandomAccessFile Rcolumna = new RandomAccessFile(FILE2, "r");
+                //celdaFila * celdaColumna
+                for(int k=(int)(3*columnas/4);k<columnas;k++){
+                    double eFila =ObtenerCelda(Rfila,fila*anchoColumnas+PosicionarSeekColumna(k),anchos[k]);
+                    double eColumna=ObtenerCelda(Rcolumna,k*anchoColumnas+PosicionarSeekColumna(columna),anchos[columna]);
+                    suma[3]+=(eFila+eColumna);
+                }
+                Rfila.close();
+                Rcolumna.close();
+            }catch(IOException e){
+                e.printStackTrace();
+            }
+        });
+        poolProductoInterno.shutdown();
+        try{
+            poolProductoInterno.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        }catch(InterruptedException e){
+            Thread.currentThread().interrupt();
+        }
+        return (suma[0]+suma[1]+suma[2]+suma[3]);
+    } 
+    //-----------------------------------------------------------------------------------------------------
+    public static double[][] ProductoSerial(String FILE1,String FILE2){
+        double[][]PROD = new double[filas][columnas];
+        FileWriter fw ;
+        try{
+            fw = new FileWriter("PRODUCTO.TXT");
+            for(int f=0;f<filas;f++){
+                for(int c=0;c<columnas;c++){
+                    PROD[f][c] =  ProductoInternoPool(f, c, FILE1, FILE2);
+                    fw.write((double)PROD[f][c]+" ");
+                }
+                fw.write("\n");
+        }
+        fw.close();
+    }catch(IOException e){
+        e.printStackTrace();
+    }
+        return PROD;
     } 
     //------------------------------------------------------------------------------------------------
     public static double ObtenerCelda(RandomAccessFile RAF,int P,int W) throws IOException {
